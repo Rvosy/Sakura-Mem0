@@ -12,13 +12,13 @@ try:
     from .memory import MEMORY_LAYERS
     from .memory_recall import MemoryRecallService
     from .domain_types import ContextMessage, ContextRequest
-    from .support import bind_logger
+    from .support import bind_logger, log_event
 except ImportError:
     from boundary import MemoryBoundary, _project_memory
     from memory import MEMORY_LAYERS
     from memory_recall import MemoryRecallService
     from domain_types import ContextMessage, ContextRequest
-    from support import bind_logger
+    from support import bind_logger, log_event
 
 
 PLUGIN_ID = "sakura.memory.mem0"
@@ -187,8 +187,8 @@ class SakuraMem0Runtime:
                         {"key": "layer", "label": "分层", "type": "string"},
                         {"key": "category", "label": "类别", "type": "string"},
                         {"key": "source", "label": "来源", "type": "string"},
-                        {"key": "importance", "label": "重要度", "type": "number"},
-                        {"key": "confidence", "label": "置信度", "type": "number"},
+                        {"key": "importance", "label": "重要度", "type": "number", "format": "percent"},
+                        {"key": "confidence", "label": "置信度", "type": "number", "format": "percent"},
                         {"key": "updatedAt", "label": "更新时间", "type": "datetime"},
                     ],
                     "fields": [
@@ -468,7 +468,6 @@ class SakuraMem0Runtime:
     def note_completed_chat(self, payload: object) -> None:
         if (
             not isinstance(payload, Mapping)
-            or set(payload) != {"characterId", "turnId", "cursor"}
             or payload.get("characterId") != self._character_id
             or not isinstance(payload.get("turnId"), str)
             or not payload.get("turnId")
@@ -484,7 +483,7 @@ class SakuraMem0Runtime:
         try:
             self._boundary.note_timeline_changed(self._timeline)
         except Exception:
-            return
+            log_event("memory", "记忆时间线同步失败", event="memory.timeline.failed", severity="error")
 
     def close(self) -> None:
         with self._task_lock:
