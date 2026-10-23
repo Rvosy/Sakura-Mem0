@@ -704,6 +704,8 @@ class MemoryBoundary:
             except OperationCancelled:
                 return
             except Exception as exc:
+                if getattr(exc, "code", "") in {"SERVICE_BINDING_EXPIRED", "GENERATION_INVALIDATED"}:
+                    return
                 # Keep completed page cursors and any successful writes. A later
                 # event retries the failed page; source IDs protect partial writes.
                 with interaction_context(operation_id):
@@ -906,6 +908,8 @@ def _project_timeline_entries(value: object, character_id: str) -> list[ChatHist
         origin = item.get("origin")
         kind = item.get("kind")
         payload = item.get("payload")
+        if isinstance(payload, Mapping) and payload.get("imported"):
+            continue
         if (
             not isinstance(entry_id, str)
             or not entry_id
